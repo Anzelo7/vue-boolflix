@@ -1,102 +1,105 @@
 <template>
   <div id="app">
-    <HeaderComponent @search="queryApi" />
-
-    <div class="container">
-      <h2>Movies</h2>
-      <!--MovieCardComponent v-for="movie in movies" :key="movie.id" :movie="movie"  /-->
-      <div class="card-container">
-        <CardComponent  v-for="movie in movies" :key="movie.id"
-          :title="movie.title"
-          :originalTitle="movie.original_title"
-          :vote="movie.vote_average"
-          :language="movie.original_language"
-          :image="movie.poster_path"
-            :overview="movie.overview"
-        />
-      </div>
-
-      <h2>TV Series</h2>
-      <!--TvSerieCardComponent v-for="tvSerie in tvSeries" :key="tvSerie.id" :tv="tvSerie"  /-->
-      <div class="card-container">
-        <CardComponent v-for="tvSerie in tvSeries" :key="tvSerie.id"
-          :title="tvSerie.name"
-          :originalTitle="tvSerie.original_name"
-          :vote="tvSerie.vote_average"
-          :language="tvSerie.original_language"
-          :image="tvSerie.poster_path"
-          :overview="tvSerie.overview"
-        />
-      </div>
-    </div>
+   <HeaderComponent :inputsave="inputsave" @sendInputText="saveInputText"/>
+   <MainComponent :generi="generiApi" :castSerie='castSeries' :castMovie='castMovies' :movies='arrayMovies' :series='arraySeries' :input="textInput" />
   </div>
 </template>
 
 <script>
-import axios from 'axios';
-import { apiKey } from '@/env'
-
-import HeaderComponent from '@/components/HeaderComponent'
-
-//import MovieCardComponent from '@/components/MovieCardComponent.vue'
-//import TvSerieCardComponent from '@/components/TvSerieCardComponent.vue'
-import CardComponent from '@/components/CardComponent.vue'
+import HeaderComponent from './components/HeaderComponent.vue';
+import MainComponent from './components/MainComponent.vue';
+import axios from 'axios'
 
 export default {
   name: 'App',
   data(){
-    return {
-      query: '',
-      movies: [],
-      tvSeries: [],
-      apiUrl: 'https://api.themoviedb.org/3/'
+    return{
+      inputsave:false,
+      textInput:"",
+      queryKey:'64a886681191c335aec070e4355d176f',
+      arrayMovies:[],
+      arraySeries:[],
+      indexMoviesArr:[],
+      indexSeriesArr:[],
+      castMovies:[],
+      castSeries:[],
+      generiApi:[]
     }
+  },
+  created(){
+    
+      axios.get(`https://api.themoviedb.org/3/genre/movie/list?api_key=${this.queryKey}&language=en-US`)
+      .then((response)=>{
+        this.generiApi=response.data.genres
+        console.log('generi',this.generiApi)
+      })
+    
   },
   methods:{
-    queryApi(textToSearch){
-      const params = `?api_key=${apiKey}&query=${textToSearch}&language=it-IT`
-
-      axios.get(`${this.apiUrl}search/movie${params}`)
+    callApiMovies(){ 
+      if(this.textInput.length>0){
+        axios.get(`https://api.themoviedb.org/3/search/movie?api_key=${this.queryKey}&query=${this.textInput}&include_adult=true`)
         .then((response)=>{
-          this.movies = this.getDataFromApiResponse(response);  
+          if(response.status===200){
+            this.arrayMovies=response.data.results
+            this.getIndexArray(this.arrayMovies, this.indexMoviesArr);
+            this.callCastArray(this.indexMoviesArr, this.castMovies, "movie")
+          }
         })
-        .catch(error=> {
-          console.log(error.message)
-        });
-      axios.get(`${this.apiUrl}search/tv${params}`)
-        .then((response)=>{
-           this.tvSeries = this.getDataFromApiResponse(response);  
+        .catch((e)=>{
+          console.log(e)
         })
-        .catch(error=> {
-          console.log(error.message)
-        });
+      }
     },
-    getDataFromApiResponse(response){
-      console.log(response);
-      return response.status === 200? response.data.results : []    
+    callApiSeries(){
+      if(this.textInput.length>0){
+        axios.get(`https://api.themoviedb.org/3/search/tv?api_key=${this.queryKey}&query=${this.textInput}&include_adult=true`)
+        .then((response)=>{
+          if(response.status===200){
+            this.arraySeries=response.data.results  
+            this.getIndexArray(this.arraySeries, this.indexSeriesArr);  
+            this.callCastArray(this.indexSeriesArr, this.castSeries, "tv")   
+          }
+        })
+        .catch((e)=>{
+          console.log(e)
+        })
+      }
+    },
+    callCastArray(array, cast, type){
+      array.forEach((element)=>{
+        axios.get(`https://api.themoviedb.org/3/${type}/${element}/credits?api_key=${this.queryKey}`)
+        .then((response)=>{
+          cast.push(response.data.cast)
+        })
+      })
+      console.log(cast)
+    },
+    getIndexArray(array, arrayIndex){
+        array.forEach((item)=>{
+        arrayIndex.push(item.id)
+      })
+      console.log('index',arrayIndex)
+    },
+    saveInputText(value){
+      console.log(value)
+      this.textInput=value
+      this.callApiMovies()
+      this. callApiSeries()
+      this.inputsave=true
     }
+ 
   },
-  components:{
+  components: {
     HeaderComponent,
- //   MovieCardComponent,
- //   TvSerieCardComponent,
-    CardComponent
-  }
+    MainComponent
+}
 }
 </script>
 
 <style lang="scss">
-@import '~bootstrap/scss/bootstrap';
-body{
-  background-color: #ddd;
-}
-.card-container{
-  display: flex;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  > * {
-    width: 25%;
-    flex-shrink: 0;
-  }
+@import '@/style/reset.scss';
+#app{
+  height: 100vh;
 }
 </style>
